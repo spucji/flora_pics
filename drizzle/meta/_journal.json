@@ -8,6 +8,13 @@
       "when": 1786720057833,
       "tag": "0000_medical_invisible_woman",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1786720519461,
+      "tag": "0001_equal_squadron_supreme",
+      "breakpoints": true
     }
   ]
 }

@@ -21,6 +21,7 @@ export default function ConsultationDialog({ bouquet, size, materialPlan, onClos
           bouquetId: bouquet.id, bouquetName: bouquet.name, priceRange: bouquet.price, size, materialPlan,
           scene: data.get("scene"), deliveryDate: data.get("deliveryDate"), budget: data.get("budget"),
           customerName: data.get("customerName"), contact: data.get("contact"), note: data.get("note"), website: data.get("website"),
+          referralCode: data.get("referralCode"),
         }),
       });
       const payload = await response.json();
@@ -50,6 +51,7 @@ export default function ConsultationDialog({ bouquet, size, materialPlan, onClos
           <label>预算范围<input name="budget" placeholder="例如 500–800 元" /></label>
           <label>怎么称呼<input name="customerName" placeholder="选填" /></label>
           <label className="full">联系方式<input name="contact" placeholder="选填：微信号或手机号，便于门店联系" /></label>
+          <label className="full">会员推荐码<input name="referralCode" placeholder="选填：由推荐你的会员提供" autoCapitalize="characters" /></label>
           <label className="full">给花艺师的备注<textarea name="note" placeholder="例如偏爱自然感、不要太甜、送给男生等" /></label>
           <label className="honeypot" aria-hidden="true">网站<input name="website" tabIndex={-1} autoComplete="off" /></label>
           {error && <p className="form-error full">{error}</p>}

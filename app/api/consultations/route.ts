@@ -4,7 +4,7 @@ import { consultations } from "../../../db/schema";
 type Submission = {
   bouquetId?: string; bouquetName?: string; size?: string; materialPlan?: string;
   priceRange?: string; scene?: string; deliveryDate?: string; budget?: string;
-  customerName?: string; contact?: string; note?: string; website?: string;
+  customerName?: string; contact?: string; note?: string; referralCode?: string; website?: string;
 };
 
 function clean(value: unknown, max: number) {
@@ -36,6 +36,7 @@ export async function POST(request: Request) {
       scene: clean(input.scene, 80), deliveryDate: clean(input.deliveryDate, 20),
       budget: clean(input.budget, 40), customerName: clean(input.customerName, 60),
       contact: clean(input.contact, 120), note: clean(input.note, 500),
+      referralCode: clean(input.referralCode, 30).toUpperCase(),
     };
     await getDb().insert(consultations).values(values);
     const summary = [
@@ -44,6 +45,7 @@ export async function POST(request: Request) {
       values.scene && `场景：${values.scene}`, values.deliveryDate && `用花日期：${values.deliveryDate}`,
       values.budget && `预算：${values.budget}`, values.customerName && `称呼：${values.customerName}`,
       values.contact && `联系方式：${values.contact}`, values.note && `备注：${values.note}`,
+      values.referralCode && `推荐码：${values.referralCode}`,
       "最终花材与价格以门店花艺师确认为准。",
     ].filter(Boolean).join("\n");
     return Response.json({ reference, summary }, { status: 201 });

@@ -3,6 +3,7 @@ import { configuredOwnerEmails } from "../../lib/owner-auth";
 import OwnerDashboard from "./owner-dashboard";
 import Link from "next/link";
 import "./owner.css";
+import "./owner-members.css";
 
 export const dynamic = "force-dynamic";
 
