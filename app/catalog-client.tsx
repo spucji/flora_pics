@@ -2,6 +2,7 @@
 "use client";
 
 import { ChangeEvent, useMemo, useState } from "react";
+import ConsultationDialog from "./consultation-dialog";
 
 type Bouquet = {
   id: string;
@@ -49,14 +50,15 @@ const materialPlans = [
   { title:"进口花材升级", text:"在体量基本不变的情况下，替换部分主花，增加稀缺度与精致度。" },
 ];
 
-export default function CatalogClient() {
+export default function CatalogClient({ ownerMode = false }: { ownerMode?: boolean }) {
   const [activeScene, setActiveScene] = useState("全部");
   const [scenes, setScenes] = useState(initialScenes);
   const [bouquets, setBouquets] = useState(initialBouquets);
   const [selected, setSelected] = useState<Bouquet | null>(null);
   const [selectedSize, setSelectedSize] = useState("M");
   const [material, setMaterial] = useState(0);
-  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(ownerMode);
+  const [consultOpen, setConsultOpen] = useState(false);
   const [editingId, setEditingId] = useState(initialBouquets[0].id);
   const [saved, setSaved] = useState(false);
   const [adminView, setAdminView] = useState<"bouquets" | "scenes">("bouquets");
@@ -129,11 +131,11 @@ export default function CatalogClient() {
   function openDetail(item: Bouquet) { setSelected(item); setSelectedSize("M"); setMaterial(0); }
 
   return (
-    <main>
+    <main onClickCapture={event => { const target = event.target as HTMLElement; if (target.closest(".consult-button")) setConsultOpen(true); if (ownerMode && target.closest(".close-admin")) window.location.assign("/owner"); }}>
       <header className="site-header">
         <a className="brand" href="#top" aria-label="Flora Atelier 首页"><span className="brand-mark">F</span><span><strong>FLORA ATELIER</strong><small>花礼选品手册</small></span></a>
         <nav aria-label="主导航"><a className="active" href="#collection">选花</a><a href="#guide">定制说明</a><a href="#about">关于我们</a></nav>
-        <button className="outline-button" onClick={() => setAdminOpen(true)}>店主入口</button>
+        <a className="outline-button" href="/owner">店主入口</a>
       </header>
 
       <section className="hero" id="top">
@@ -154,6 +156,8 @@ export default function CatalogClient() {
       <section className="guide" id="guide"><span className="kicker">HOW CUSTOM PRICING WORKS</span><h2>价格不只由尺寸决定</h2><div className="guide-grid"><div><b>01</b><h3>整体参考价</h3><p>每款花礼给出完整参考区间，便于先判断是否符合预算。</p></div><div><b>02</b><h3>体量调整</h3><p>在风格和花材配方基本不变时，增减花量所带来的浮动。</p></div><div><b>03</b><h3>花材调整</h3><p>体量基本不变时，因时令、进口与稀缺花材产生的浮动。</p></div></div></section>
 
       <footer id="about"><div className="brand footer-brand"><span className="brand-mark">F</span><span><strong>FLORA ATELIER</strong><small>花礼选品手册</small></span></div><p>预约与当日花材，请咨询门店花艺师。</p><span>MADE FOR BEAUTIFUL MOMENTS</span></footer>
+
+      {consultOpen && selected && <ConsultationDialog bouquet={selected} size={selectedSize} materialPlan={materialPlans[material].title} onClose={()=>setConsultOpen(false)} />}
 
       {selected && <div className="modal-layer" role="dialog" aria-modal="true" aria-label={`${selected.name}详情`}><button className="modal-backdrop" onClick={() => setSelected(null)} aria-label="关闭"/><div className="detail-modal"><button className="close-button" onClick={() => setSelected(null)}>×</button><div className="detail-image"><img src={selected.image} alt={`${selected.name}演示图`}/><span>DEMO IMAGE</span></div><div className="detail-content"><small>{selected.id} · {selected.color}</small><h2>{selected.name}</h2><p className="detail-description">{selected.description}</p><section><div className="subhead"><h3>体量参考</h3><span>花材风格保持一致</span></div><div className="size-tabs">{Object.keys(sizeInfo).map(size => <button onClick={() => setSelectedSize(size)} className={size===selectedSize?"selected":""} key={size}>{size}</button>)}</div><p className="option-note">{sizeInfo[selectedSize]}</p></section><section><div className="subhead"><h3>花材方案</h3><span>体量基本不变</span></div><div className="material-tabs">{materialPlans.map((plan,i)=><button className={i===material?"selected":""} onClick={()=>setMaterial(i)} key={plan.title}><b>0{i+1}</b>{plan.title}</button>)}</div><p className="option-note">{materialPlans[material].text}</p></section><section className="price-panel"><div><span>整体参考价</span><strong>¥{selected.price}</strong></div><div><span>体量调整影响</span><strong>+¥{selected.sizePrice}</strong></div><div><span>花材调整影响</span><strong>±¥{selected.materialPrice}</strong></div><p>最终价格受当日花材、季节行情、花量、进口花材与包装复杂度影响，以花艺师确认方案为准。</p></section><button className="consult-button">记住这款，咨询店员 <span>↗</span></button></div></div></div>}
 
