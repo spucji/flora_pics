@@ -6,7 +6,7 @@ import { getOwner } from "../../../../lib/owner-auth";
 async function authorize() {
   const owner = await getOwner();
   if (!owner.user) return Response.json({ error: "请先登录店主账号。" }, { status: 401 });
-  if (!owner.authorized) return Response.json({ error: "当前账号不在店主白名单中。" }, { status: 403 });
+  if (!owner.authorized) return Response.json({ error: "店主登录已失效。" }, { status: 403 });
   return null;
 }
 

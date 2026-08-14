@@ -1,3 +1,5 @@
+import { getOwner } from "../../../lib/owner-auth";
+
 type ChatPayload = {
   choices?: Array<{ message?: { content?: string } }>;
   error?: { message?: string };
@@ -90,6 +92,8 @@ async function writeWithDeepSeek(vision: VisionResult, scenes: string[], apiKey:
 }
 
 export async function POST(request: Request) {
+  const owner = await getOwner();
+  if (!owner.authorized) return Response.json({ error: "请先登录店主账号。" }, { status: 401 });
   try {
     const { image, scenes } = await request.json() as { image?: string; scenes?: string[] };
     if (!image?.startsWith("data:image/")) {
