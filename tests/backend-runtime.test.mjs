@@ -81,6 +81,11 @@ test("consultations, members and catalog persist through the Alibaba Node runtim
 
     const editor = await fetch(`${origin}/owner/editor`, { headers: ownerHeaders, redirect:"manual" });
     assert.equal(editor.status, 200);
+    const editorHtml = await editor.text();
+    assert.match(editorHtml, /店主编辑台/);
+    assert.match(editorHtml, /花礼管理/);
+    assert.match(editorHtml, /场景管理/);
+    assert.match(editorHtml, /新增花礼/);
   } finally {
     server.kill("SIGTERM");
     await new Promise(resolve => server.once("exit", resolve));
