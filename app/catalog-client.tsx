@@ -160,7 +160,7 @@ export default function CatalogClient({ ownerMode = false }: { ownerMode?: boole
         <a className="outline-button" href="/owner">店主入口</a>
       </header>
 
-      <section className="hero" id="top">
+      <section className="hero" id="top" aria-label="FLORA ATELIER，为每一次见面，选一束恰好的花。">
         <div className="eyebrow"><span /> FLORAL SELECTION · 2026</div>
         <h1>为每一次见面，<br/><em>选一束恰好的花。</em></h1>
         <p>按场景、色系与预算慢慢挑选。每款花礼都提供体量参考、花材调整方案与透明的价格说明。</p>
