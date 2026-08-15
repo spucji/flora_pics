@@ -22,6 +22,7 @@ test("consultations, members and catalog persist through the Alibaba Node runtim
       ...process.env,
       PORT: String(port),
       DATABASE_PATH: join(directory, "flora.sqlite"),
+      UPLOAD_DIR: join(directory, "uploads"),
       OWNER_USERNAME: "test-owner",
       OWNER_PASSWORD: "test-password",
       OWNER_SESSION_SECRET: "test-session-secret-with-sufficient-length",
@@ -59,6 +60,20 @@ test("consultations, members and catalog persist through the Alibaba Node runtim
     assert.ok(cookie?.includes("flora_owner_session="));
     const ownerHeaders = { Cookie: cookie.split(";")[0] };
 
+    const pngBytes = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64");
+    const imageForm = new FormData();
+    imageForm.append("image", new Blob([pngBytes], { type:"image/png" }), "test-bouquet.png");
+    const uploadedImage = await json(await fetch(`${origin}/api/images`, {
+      method: "POST",
+      headers: ownerHeaders,
+      body: imageForm,
+    }));
+    assert.match(uploadedImage.url, /^\/api\/images\?file=[0-9a-f-]+\.png$/);
+    const servedImage = await fetch(`${origin}${uploadedImage.url}`);
+    assert.equal(servedImage.status, 200);
+    assert.equal(servedImage.headers.get("content-type"), "image/png");
+    assert.deepEqual(Buffer.from(await servedImage.arrayBuffer()), pngBytes);
+
     const consultations = await json(await fetch(`${origin}/api/owner/consultations`, { headers: ownerHeaders }));
     assert.equal(consultations.consultations[0].customerName, "测试顾客");
 
@@ -71,13 +86,19 @@ test("consultations, members and catalog persist through the Alibaba Node runtim
 
     const changedCatalog = structuredClone(initialCatalog);
     changedCatalog.bouquets[0].name = "已保存的测试花礼";
-    await json(await fetch(`${origin}/api/catalog`, {
+    changedCatalog.bouquets[0].image = uploadedImage.url;
+    changedCatalog.bouquets[1].image = `data:image/png;base64,${pngBytes.toString("base64")}`;
+    const catalogSave = await json(await fetch(`${origin}/api/catalog`, {
       method: "PUT",
       headers: { ...ownerHeaders, "Content-Type": "application/json" },
       body: JSON.stringify(changedCatalog),
     }));
+    assert.equal(catalogSave.catalog.bouquets[0].image, uploadedImage.url);
+    assert.match(catalogSave.catalog.bouquets[1].image, /^\/api\/images\?file=[0-9a-f-]+\.png$/);
     const savedCatalog = await json(await fetch(`${origin}/api/catalog`));
     assert.equal(savedCatalog.bouquets[0].name, "已保存的测试花礼");
+    assert.equal(savedCatalog.bouquets[0].image, uploadedImage.url);
+    assert.ok(!savedCatalog.bouquets.some(bouquet => bouquet.image.startsWith("data:image/")));
 
     const editor = await fetch(`${origin}/owner/editor`, { headers: ownerHeaders, redirect:"manual" });
     assert.equal(editor.status, 200);

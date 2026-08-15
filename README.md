@@ -16,6 +16,18 @@ npm run dev
 npm run build
 ```
 
+## Alibaba Cloud persistence
+
+The Node deployment keeps business data on the server filesystem:
+
+- SQLite: `data/flora.sqlite` by default, or `DATABASE_PATH`
+- uploaded images: `data/uploads/` by default, or `UPLOAD_DIR`
+- SQLite stores only image URLs such as `/api/images?file=<uuid>.jpg`
+
+Keep both the SQLite file and the upload directory when deploying or backing up.
+They are ignored by Git, so `git pull` does not overwrite customer data or images.
+The service account must have write permission to both paths.
+
 This starter does not use `wrangler.jsonc`.
 
 ## Included Shape

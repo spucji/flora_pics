@@ -63,13 +63,22 @@ export default function CatalogClient({ ownerMode = false }: { ownerMode?: boole
     setSaved(false);
   }
 
-  function uploadPreview(event: ChangeEvent<HTMLInputElement>) {
+  async function uploadPreview(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
     if (file.size > 8 * 1024 * 1024) { setAiError("图片请控制在 8MB 以内。"); return; }
-    const reader = new FileReader();
-    reader.onload = () => { updateEditing("image", String(reader.result)); setAiDraft(null); setAiError(""); };
-    reader.readAsDataURL(file);
+    setAiError("");
+    try {
+      const form = new FormData();
+      form.append("image", file);
+      const response = await fetch("/api/images", { method:"POST", body:form });
+      const data = await response.json();
+      if (!response.ok || typeof data.url !== "string") throw new Error(data.error || "图片上传失败");
+      updateEditing("image", data.url);
+      setAiDraft(null);
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : "图片上传失败");
+    } finally { event.target.value = ""; }
   }
 
   async function analyzeImage() {
@@ -117,6 +126,10 @@ export default function CatalogClient({ ownerMode = false }: { ownerMode?: boole
       const response = await fetch("/api/catalog", { method:"PUT", headers:{ "Content-Type":"application/json" }, body:JSON.stringify({ scenes, bouquets }) });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "保存失败");
+      if (isCatalogState(payload.catalog)) {
+        setScenes(payload.catalog.scenes);
+        setBouquets(payload.catalog.bouquets);
+      }
       setSaved(true);
     } catch (error) {
       setCatalogError(error instanceof Error ? error.message : "保存失败");

@@ -1,4 +1,5 @@
 import { getOwner } from "../../../lib/owner-auth";
+import { imageAsDataUrl } from "../../../lib/image-storage";
 
 type ChatPayload = {
   choices?: Array<{ message?: { content?: string } }>;
@@ -96,10 +97,9 @@ export async function POST(request: Request) {
   if (!owner.authorized) return Response.json({ error: "请先登录店主账号。" }, { status: 401 });
   try {
     const { image, scenes } = await request.json() as { image?: string; scenes?: string[] };
-    if (!image?.startsWith("data:image/")) {
-      return Response.json({ error: "请先上传一张本地花束图片，再使用 AI 识别。" }, { status: 400 });
-    }
-    if (image.length > 11_000_000) {
+    if (!image) return Response.json({ error: "请先上传一张花束图片，再使用 AI 识别。" }, { status: 400 });
+    const imageData = await imageAsDataUrl(image);
+    if (imageData.length > 11_000_000) {
       return Response.json({ error: "图片过大，请压缩至 8MB 以内。" }, { status: 413 });
     }
 
@@ -110,7 +110,7 @@ export async function POST(request: Request) {
       return Response.json({ error: `AI 服务尚未配置完整：缺少 ${missing.join("、")}。`, code: "AI_NOT_CONFIGURED" }, { status: 503 });
     }
 
-    const vision = await analyzeWithQwen(image, dashscopeKey as string);
+    const vision = await analyzeWithQwen(imageData, dashscopeKey as string);
     const draft = await writeWithDeepSeek(vision, Array.isArray(scenes) ? scenes : [], deepseekKey as string);
     if (!validDraft(draft)) throw new Error("生成结果格式不完整，请重试");
     return Response.json(draft);
