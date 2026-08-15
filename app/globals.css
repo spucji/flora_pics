@@ -26,7 +26,7 @@ footer{display:flex;align-items:center;justify-content:space-between;gap:30px;pa
 /* The generated hero is decorative. Product photos are always shown without color filters. */
 .hero{background-image:linear-gradient(90deg,rgba(231,227,218,.98) 0%,rgba(231,227,218,.94) 37%,rgba(231,227,218,.48) 56%,rgba(231,227,218,.05) 78%),url("/hero-huaxuli-v1.png");background-position:center;background-size:cover}
 .hero:before,.hero:after{display:none}
-.image-wrap img,.detail-image img,.admin-list img{filter:none}
+.image-wrap img,.detail-image img,.admin-list img,.upload-field img{filter:none;object-fit:contain}
 .upload-field small{font-size:0}
 .upload-field small:after{content:"原图直存，不压缩、不裁剪、不调色；AI 仅生成文案草稿";font-size:10px}
 .admin-brand .brand-mark{font-size:0}.admin-brand .brand-mark:after{content:"H";font-size:24px}.admin-brand strong{font-size:0}.admin-brand strong:after{content:"HUAXULI FLORA";font-size:13px}
