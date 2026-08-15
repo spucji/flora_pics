@@ -1,6 +1,6 @@
 import { desc, eq } from "drizzle-orm";
 import { getDb } from "../../../../db";
-import { memberLedger, members } from "../../../../db/schema";
+import { consultations, memberLedger, members } from "../../../../db/schema";
 import { getOwner } from "../../../../lib/owner-auth";
 
 async function denied() {
@@ -11,7 +11,6 @@ async function denied() {
 }
 
 function clean(value: unknown, max: number) { return typeof value === "string" ? value.trim().slice(0, max) : ""; }
-function makeCode() { return `F${crypto.randomUUID().replaceAll("-", "").slice(0, 6).toUpperCase()}`; }
 
 export async function GET() {
   const blocked = await denied(); if (blocked) return blocked;
@@ -31,7 +30,7 @@ export async function POST(request: Request) {
     const db = await getDb();
     if (input.action === "create") {
       const name = clean(input.name, 60); if (!name) return Response.json({ error: "请填写会员称呼。" }, { status: 400 });
-      const [member] = await db.insert(members).values({ code: makeCode(), name, contact: clean(input.contact, 120), note: clean(input.note, 300) }).returning();
+      const [member] = await db.insert(members).values({ code:"", name, contact: clean(input.contact, 120), note: clean(input.note, 300) }).returning();
       return Response.json({ member }, { status: 201 });
     }
     if (input.action === "redeem") {
@@ -45,4 +44,25 @@ export async function POST(request: Request) {
     }
     return Response.json({ error: "不支持的操作。" }, { status: 400 });
   } catch (error) { console.error("Owner member operation failed", error); return Response.json({ error: "会员操作失败，请稍后重试。" }, { status: 500 }); }
+}
+
+export async function DELETE(request: Request) {
+  const blocked = await denied(); if (blocked) return blocked;
+  try {
+    const input = await request.json() as { memberId?: number };
+    const memberId = Number(input.memberId);
+    if (!Number.isInteger(memberId)) return Response.json({ error:"会员编号无效。" }, { status:400 });
+    const db = await getDb();
+    const [member] = await db.select().from(members).where(eq(members.id, memberId)).limit(1);
+    if (!member) return Response.json({ error:"会员不存在或已被删除。" }, { status:404 });
+    const detach = db.update(consultations).set({ referrerMemberId:null, rewardGranted:false }).where(eq(consultations.referrerMemberId, member.id));
+    const removeLedger = db.delete(memberLedger).where(eq(memberLedger.memberId, member.id));
+    const removeMember = db.delete(members).where(eq(members.id, member.id));
+    if (member.code) await db.batch([detach, db.update(consultations).set({ referralCode:"", rewardGranted:false }).where(eq(consultations.referralCode, member.code)), removeLedger, removeMember]);
+    else await db.batch([detach, removeLedger, removeMember]);
+    return Response.json({ ok:true });
+  } catch (error) {
+    console.error("Owner member deletion failed", error);
+    return Response.json({ error:"会员删除失败，请稍后重试。" }, { status:500 });
+  }
 }

@@ -83,11 +83,18 @@ test("consultations, members and catalog persist through the Alibaba Node runtim
       body: JSON.stringify({ action:"create", name:"测试会员", contact:"test-contact" }),
     }));
     assert.equal(createdMember.member.name, "测试会员");
+    assert.equal(createdMember.member.code, "");
+    const secondMember = await json(await fetch(`${origin}/api/owner/members`, {
+      method: "POST",
+      headers: { ...ownerHeaders, "Content-Type":"application/json" },
+      body: JSON.stringify({ action:"create", name:"第二位会员", contact:"second-contact" }),
+    }));
+    assert.equal(secondMember.member.code, "");
 
     const referredConsultation = await json(await fetch(`${origin}/api/consultations`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bouquetId:"FL-002", bouquetName:"暮色花园", size:"M", materialPlan:"原版花材", priceRange:"599–1299", customerName:"推荐顾客", referralCode:createdMember.member.code }),
+      body: JSON.stringify({ bouquetId:"FL-002", bouquetName:"暮色花园", size:"M", materialPlan:"原版花材", priceRange:"599–1299", customerName:"推荐顾客" }),
     }));
     const consultationRows = await json(await fetch(`${origin}/api/owner/consultations`, { headers:ownerHeaders }));
     const referredOrder = consultationRows.consultations.find(row => row.reference === referredConsultation.reference);
@@ -95,10 +102,18 @@ test("consultations, members and catalog persist through the Alibaba Node runtim
     await json(await fetch(`${origin}/api/owner/consultations`, {
       method: "PATCH",
       headers: { ...ownerHeaders, "Content-Type":"application/json" },
-      body: JSON.stringify({ id:referredOrder.id, status:"purchased", purchaseAmount:699 }),
+      body: JSON.stringify({ id:referredOrder.id, status:"purchased", purchaseAmount:699, referrerMemberId:createdMember.member.id }),
     }));
     const rewardedMembers = await json(await fetch(`${origin}/api/owner/members`, { headers:ownerHeaders }));
-    assert.equal(rewardedMembers.members[0].balance, 10);
+    assert.equal(rewardedMembers.members.find(member => member.id === createdMember.member.id).balance, 10);
+    await json(await fetch(`${origin}/api/owner/consultations`, {
+      method: "PATCH",
+      headers: { ...ownerHeaders, "Content-Type":"application/json" },
+      body: JSON.stringify({ id:referredOrder.id, status:"purchased", purchaseAmount:699, referrerMemberId:secondMember.member.id }),
+    }));
+    const reassignedMembers = await json(await fetch(`${origin}/api/owner/members`, { headers:ownerHeaders }));
+    assert.equal(reassignedMembers.members.find(member => member.id === createdMember.member.id).balance, 0);
+    assert.equal(reassignedMembers.members.find(member => member.id === secondMember.member.id).balance, 10);
     const deletedOrder = await json(await fetch(`${origin}/api/owner/consultations`, {
       method: "DELETE",
       headers: { ...ownerHeaders, "Content-Type":"application/json" },
@@ -106,9 +121,17 @@ test("consultations, members and catalog persist through the Alibaba Node runtim
     }));
     assert.equal(deletedOrder.reversedReward, true);
     const membersAfterDeletion = await json(await fetch(`${origin}/api/owner/members`, { headers:ownerHeaders }));
-    assert.equal(membersAfterDeletion.members[0].balance, 0);
+    assert.equal(membersAfterDeletion.members.find(member => member.id === secondMember.member.id).balance, 0);
     const ordersAfterDeletion = await json(await fetch(`${origin}/api/owner/consultations`, { headers:ownerHeaders }));
     assert.ok(!ordersAfterDeletion.consultations.some(row => row.id === referredOrder.id));
+    await json(await fetch(`${origin}/api/owner/members`, {
+      method: "DELETE",
+      headers: { ...ownerHeaders, "Content-Type":"application/json" },
+      body: JSON.stringify({ memberId:createdMember.member.id }),
+    }));
+    const membersAfterMemberDeletion = await json(await fetch(`${origin}/api/owner/members`, { headers:ownerHeaders }));
+    assert.ok(!membersAfterMemberDeletion.members.some(member => member.id === createdMember.member.id));
+    assert.ok(membersAfterMemberDeletion.members.some(member => member.id === secondMember.member.id));
 
     const changedCatalog = structuredClone(initialCatalog);
     changedCatalog.bouquets[0].name = "已保存的测试花礼";

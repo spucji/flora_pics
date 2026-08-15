@@ -45,10 +45,19 @@ export default function MemberManager() {
     const payload = await response.json(); if (!response.ok) { setError(payload.error); return; } await load();
   }
 
+  async function deleteMember(member: Member) {
+    if (!window.confirm(`确定永久删除会员「${member.name}」吗？\n该会员的推荐金余额和全部流水也会一并删除，此操作无法恢复。`)) return;
+    setError("");
+    const response = await fetch("/api/owner/members", { method:"DELETE", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ memberId:member.id }) });
+    const payload = await response.json();
+    if (!response.ok) { setError(payload.error || "会员删除失败"); return; }
+    setMembers(current => current.filter(row => row.id !== member.id));
+  }
+
   return <div className="member-manager">
-    <form className="member-create" onSubmit={createMember}><div><h2>新增会员</h2><p>会员无需注册账号，由店主登记并提供推荐码。</p></div><label>会员称呼<input name="name" required placeholder="例如 王女士" /></label><label>联系方式<input name="contact" placeholder="微信号或手机号" /></label><label>备注<input name="note" placeholder="偏好、纪念日等（选填）" /></label><button disabled={creating}>{creating?"正在创建…":"创建会员"}</button></form>
+    <form className="member-create" onSubmit={createMember}><div><h2>新增会员</h2><p>会员无需注册账号；订单由店主手动选择推荐人。</p></div><label>会员称呼<input name="name" required placeholder="例如 王女士" /></label><label>联系方式<input name="contact" placeholder="微信号或手机号" /></label><label>备注<input name="note" placeholder="偏好、纪念日等（选填）" /></label><button disabled={creating}>{creating?"正在创建…":"创建会员"}</button></form>
     <div className="member-policy"><b>推荐金规则</b><span>推荐新顾客并由店主确认成交后 +10 元；仅限购花抵扣，不可充值、提现或转账；退款时自动撤回。</span></div>
     {error&&<div className="owner-empty error">{error}</div>}
-    {loading?<div className="owner-empty">正在读取会员资料…</div>:members.length===0?<div className="owner-empty">还没有会员，先登记第一位吧。</div>:<div className="member-list">{members.map(member=><article key={member.id}><header><div><small>{member.code}</small><h2>{member.name}</h2><p>{member.contact||"未留联系方式"}</p></div><div className="member-balance"><span>可用推荐金</span><strong>¥{member.balance}</strong><button onClick={()=>redeem(member)} disabled={member.balance<=0}>登记抵扣</button></div></header>{member.note&&<p className="member-note">{member.note}</p>}<div className="ledger"><h3>最近流水</h3>{member.ledger.length===0?<p>暂无推荐金流水</p>:member.ledger.map(row=><div key={row.id}><span><b>{row.reason}</b><small>{row.createdAt}</small></span><strong className={row.amount>0?"plus":"minus"}>{row.amount>0?"+":""}{row.amount} 元</strong></div>)}</div></article>)}</div>}
+    {loading?<div className="owner-empty">正在读取会员资料…</div>:members.length===0?<div className="owner-empty">还没有会员，先登记第一位吧。</div>:<div className="member-list">{members.map(member=><article key={member.id}><header><div><small>MEMBER</small><h2>{member.name}</h2><p>{member.contact||"未留联系方式"}</p></div><div className="member-balance"><span>可用推荐金</span><strong>¥{member.balance}</strong><button onClick={()=>redeem(member)} disabled={member.balance<=0}>登记抵扣</button><button className="delete-member" onClick={()=>deleteMember(member)}>删除会员</button></div></header>{member.note&&<p className="member-note">{member.note}</p>}<div className="ledger"><h3>最近流水</h3>{member.ledger.length===0?<p>暂无推荐金流水</p>:member.ledger.map(row=><div key={row.id}><span><b>{row.reason}</b><small>{row.createdAt}</small></span><strong className={row.amount>0?"plus":"minus"}>{row.amount>0?"+":""}{row.amount} 元</strong></div>)}</div></article>)}</div>}
   </div>;
 }

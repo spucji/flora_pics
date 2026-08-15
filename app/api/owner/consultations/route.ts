@@ -26,7 +26,7 @@ export async function PATCH(request: Request) {
   const denied = await authorize();
   if (denied) return denied;
   try {
-    const input = await request.json() as { id?: number; status?: string; purchaseAmount?: number };
+    const input = await request.json() as { id?: number; status?: string; purchaseAmount?: number; referrerMemberId?: number | null };
     const allowed = ["pending", "contacted", "purchased", "cancelled"];
     if (!Number.isInteger(input.id) || !input.status || !allowed.includes(input.status)) {
       return Response.json({ error: "状态信息无效。" }, { status: 400 });
@@ -35,17 +35,25 @@ export async function PATCH(request: Request) {
     const [current] = await db.select().from(consultations).where(eq(consultations.id, input.id as number)).limit(1);
     if (!current) return Response.json({ error: "咨询单不存在。" }, { status: 404 });
     const purchaseAmount = Number.isFinite(input.purchaseAmount) ? Math.max(0, Math.round(input.purchaseAmount as number)) : current.purchaseAmount;
-    const [referrer] = current.referralCode ? await db.select().from(members).where(eq(members.code, current.referralCode)).limit(1) : [];
-    const shouldGrant = input.status === "purchased" && Boolean(referrer);
-    const rewardChanged = shouldGrant !== current.rewardGranted;
-    const update = db.update(consultations).set({ status: input.status, purchaseAmount, rewardGranted: shouldGrant }).where(eq(consultations.id, current.id));
-    if (rewardChanged && referrer) {
-      const amount = shouldGrant ? 10 : -10;
-      await db.batch([update, db.insert(memberLedger).values({ memberId: referrer.id, amount, type: shouldGrant ? "referral" : "reversal", reason: shouldGrant ? `推荐顾客 ${current.reference} 成交` : `订单 ${current.reference} 取消，撤回推荐金`, consultationId: current.id })]);
-    } else {
-      await update;
-    }
-    return Response.json({ ok: true, rewardGranted: shouldGrant });
+    const [legacyReferrer] = !current.referrerMemberId && current.referralCode ? await db.select().from(members).where(eq(members.code, current.referralCode)).limit(1) : [];
+    const currentReferrerId = current.referrerMemberId ?? legacyReferrer?.id ?? null;
+    const referrerWasProvided = Object.prototype.hasOwnProperty.call(input, "referrerMemberId");
+    const requestedReferrerId = referrerWasProvided ? (input.referrerMemberId === null ? null : Number(input.referrerMemberId)) : currentReferrerId;
+    if (requestedReferrerId !== null && !Number.isInteger(requestedReferrerId)) return Response.json({ error:"推荐会员信息无效。" }, { status:400 });
+    const [nextReferrer] = requestedReferrerId === null ? [] : await db.select().from(members).where(eq(members.id, requestedReferrerId)).limit(1);
+    if (requestedReferrerId !== null && !nextReferrer) return Response.json({ error:"所选推荐会员不存在，请刷新后重试。" }, { status:404 });
+
+    const shouldReward = input.status === "purchased" && Boolean(nextReferrer);
+    const shouldRevoke = current.rewardGranted && Boolean(currentReferrerId) && (!shouldReward || currentReferrerId !== requestedReferrerId);
+    const shouldGrant = shouldReward && (!current.rewardGranted || currentReferrerId !== requestedReferrerId);
+    const update = db.update(consultations).set({ status:input.status, purchaseAmount, rewardGranted:shouldReward, referrerMemberId:requestedReferrerId, referralCode:"" }).where(eq(consultations.id, current.id));
+    const revoke = currentReferrerId ? db.insert(memberLedger).values({ memberId:currentReferrerId, amount:-10, type:"reversal", reason:`订单 ${current.reference} 取消或更换推荐人，撤回推荐金`, consultationId:current.id }) : null;
+    const grant = nextReferrer ? db.insert(memberLedger).values({ memberId:nextReferrer.id, amount:10, type:"referral", reason:`推荐顾客 ${current.reference} 成交`, consultationId:current.id }) : null;
+    if (shouldRevoke && shouldGrant && revoke && grant) await db.batch([update, revoke, grant]);
+    else if (shouldRevoke && revoke) await db.batch([update, revoke]);
+    else if (shouldGrant && grant) await db.batch([update, grant]);
+    else await update;
+    return Response.json({ ok:true, rewardGranted:shouldReward, referrerMemberId:requestedReferrerId });
   } catch (error) {
     console.error("Owner consultation update failed", error);
     return Response.json({ error: "状态更新失败。" }, { status: 500 });
@@ -61,19 +69,20 @@ export async function DELETE(request: Request) {
     const db = await getDb();
     const [current] = await db.select().from(consultations).where(eq(consultations.id, input.id as number)).limit(1);
     if (!current) return Response.json({ error: "咨询单不存在或已被删除。" }, { status: 404 });
-    const [referrer] = current.referralCode ? await db.select().from(members).where(eq(members.code, current.referralCode)).limit(1) : [];
+    const [legacyReferrer] = !current.referrerMemberId && current.referralCode ? await db.select().from(members).where(eq(members.code, current.referralCode)).limit(1) : [];
+    const referrerId = current.referrerMemberId ?? legacyReferrer?.id ?? null;
     const detachLedger = db.update(memberLedger).set({ consultationId:null }).where(eq(memberLedger.consultationId, current.id));
     const removeOrder = db.delete(consultations).where(eq(consultations.id, current.id));
-    if (current.rewardGranted && referrer) {
+    if (current.rewardGranted && referrerId) {
       await db.batch([
         detachLedger,
-        db.insert(memberLedger).values({ memberId:referrer.id, amount:-10, type:"reversal", reason:`删除订单 ${current.reference}，撤回推荐金` }),
+        db.insert(memberLedger).values({ memberId:referrerId, amount:-10, type:"reversal", reason:`删除订单 ${current.reference}，撤回推荐金` }),
         removeOrder,
       ]);
     } else {
       await db.batch([detachLedger, removeOrder]);
     }
-    return Response.json({ ok:true, reversedReward:Boolean(current.rewardGranted && referrer) });
+    return Response.json({ ok:true, reversedReward:Boolean(current.rewardGranted && referrerId) });
   } catch (error) {
     console.error("Owner consultation deletion failed", error);
     return Response.json({ error: "订单删除失败，请稍后重试。" }, { status: 500 });

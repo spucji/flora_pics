@@ -16,6 +16,7 @@ export const consultations = sqliteTable("consultations", {
   contact: text("contact").notNull().default(""),
   note: text("note").notNull().default(""),
   referralCode: text("referral_code").notNull().default(""),
+  referrerMemberId: integer("referrer_member_id"),
   purchaseAmount: integer("purchase_amount").notNull().default(0),
   rewardGranted: integer("reward_granted", { mode: "boolean" }).notNull().default(false),
   status: text("status").notNull().default("pending"),
@@ -23,6 +24,7 @@ export const consultations = sqliteTable("consultations", {
 }, (table) => [
   uniqueIndex("idx_consultations_reference").on(table.reference),
   index("idx_consultations_status_created").on(table.status, table.createdAt),
+  index("idx_consultations_referrer_member").on(table.referrerMemberId),
 ]);
 
 export const members = sqliteTable("members", {
@@ -33,7 +35,6 @@ export const members = sqliteTable("members", {
   note: text("note").notNull().default(""),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [
-  uniqueIndex("idx_members_code").on(table.code),
   index("idx_members_name").on(table.name),
 ]);
 

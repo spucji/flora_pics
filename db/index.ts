@@ -29,6 +29,7 @@ function initializeDatabase() {
       contact TEXT DEFAULT '' NOT NULL,
       note TEXT DEFAULT '' NOT NULL,
       referral_code TEXT DEFAULT '' NOT NULL,
+      referrer_member_id INTEGER,
       purchase_amount INTEGER DEFAULT 0 NOT NULL,
       reward_granted INTEGER DEFAULT 0 NOT NULL,
       status TEXT DEFAULT 'pending' NOT NULL,
@@ -64,10 +65,12 @@ function initializeDatabase() {
   if (!names.has("referral_code")) sqlite.exec("ALTER TABLE consultations ADD COLUMN referral_code TEXT DEFAULT '' NOT NULL");
   if (!names.has("purchase_amount")) sqlite.exec("ALTER TABLE consultations ADD COLUMN purchase_amount INTEGER DEFAULT 0 NOT NULL");
   if (!names.has("reward_granted")) sqlite.exec("ALTER TABLE consultations ADD COLUMN reward_granted INTEGER DEFAULT 0 NOT NULL");
+  if (!names.has("referrer_member_id")) sqlite.exec("ALTER TABLE consultations ADD COLUMN referrer_member_id INTEGER");
   sqlite.exec(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_consultations_reference ON consultations(reference);
     CREATE INDEX IF NOT EXISTS idx_consultations_status_created ON consultations(status, created_at);
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_members_code ON members(code);
+    CREATE INDEX IF NOT EXISTS idx_consultations_referrer_member ON consultations(referrer_member_id);
+    DROP INDEX IF EXISTS idx_members_code;
     CREATE INDEX IF NOT EXISTS idx_members_name ON members(name);
     CREATE INDEX IF NOT EXISTS idx_member_ledger_member_created ON member_ledger(member_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_member_ledger_consultation ON member_ledger(consultation_id);
