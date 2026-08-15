@@ -25,7 +25,7 @@ export default function LoginForm({ configured }: { configured: boolean }) {
   }
 
   return <main className="owner-access owner-login"><div>
-    <Link className="owner-login-brand" href="/">FLORA · 花礼目录</Link>
+    <Link className="owner-login-brand" href="/">HUAXULI FLORA · 花礼目录</Link>
     <span>OWNER ACCESS</span><h1>店主登录</h1>
     <p>两位店主使用同一组账号与密码，即可管理花礼、咨询单和会员记录。</p>
     <form onSubmit={submit}>

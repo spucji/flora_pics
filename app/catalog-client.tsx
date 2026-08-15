@@ -155,7 +155,7 @@ export default function CatalogClient({ ownerMode = false }: { ownerMode?: boole
   return (
     <main onClickCapture={event => { const target = event.target as HTMLElement; if (target.closest(".consult-button")) setConsultOpen(true); if (ownerMode && target.closest(".close-admin")) window.location.assign("/owner"); }}>
       <header className="site-header">
-        <a className="brand" href="#top" aria-label="Flora Atelier 首页"><span className="brand-mark">F</span><span><strong>FLORA ATELIER</strong><small>花礼选品手册</small></span></a>
+        <a className="brand" href="#top" aria-label="HUAXULI FLORA 首页"><span className="brand-mark">H</span><span><strong>HUAXULI FLORA</strong><small>花礼选品手册</small></span></a>
         <nav aria-label="主导航"><a className="active" href="#collection">选花</a><a href="#guide">定制说明</a><a href="#about">关于我们</a></nav>
         <a className="outline-button" href="/owner">店主入口</a>
       </header>
@@ -177,7 +177,7 @@ export default function CatalogClient({ ownerMode = false }: { ownerMode?: boole
 
       <section className="guide" id="guide"><span className="kicker">HOW CUSTOM PRICING WORKS</span><h2>价格不只由尺寸决定</h2><div className="guide-grid"><div><b>01</b><h3>整体参考价</h3><p>每款花礼给出完整参考区间，便于先判断是否符合预算。</p></div><div><b>02</b><h3>体量调整</h3><p>在风格和花材配方基本不变时，增减花量所带来的浮动。</p></div><div><b>03</b><h3>花材调整</h3><p>体量基本不变时，因时令、进口与稀缺花材产生的浮动。</p></div></div></section>
 
-      <footer id="about"><div className="brand footer-brand"><span className="brand-mark">F</span><span><strong>FLORA ATELIER</strong><small>花礼选品手册</small></span></div><p>预约与当日花材，请咨询门店花艺师。</p><span>MADE FOR BEAUTIFUL MOMENTS</span></footer>
+      <footer id="about"><div className="brand footer-brand"><span className="brand-mark">H</span><span><strong>HUAXULI FLORA</strong><small>花礼选品手册</small></span></div><p>预约与当日花材，请咨询门店花艺师。</p><span>MADE FOR BEAUTIFUL MOMENTS</span></footer>
 
       {consultOpen && selected && <ConsultationDialog bouquet={selected} size={selectedSize} materialPlan={materialPlans[material].title} onClose={()=>setConsultOpen(false)} />}
 
