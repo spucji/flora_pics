@@ -14,7 +14,8 @@ export async function GET() {
   const denied = await authorize();
   if (denied) return denied;
   try {
-    const rows = await getDb().select().from(consultations).orderBy(desc(consultations.createdAt)).limit(100);
+    const db = await getDb();
+    const rows = await db.select().from(consultations).orderBy(desc(consultations.createdAt)).limit(100);
     return Response.json({ consultations: rows });
   } catch {
     return Response.json({ error: "暂时无法读取咨询单。" }, { status: 500 });
@@ -30,7 +31,7 @@ export async function PATCH(request: Request) {
     if (!Number.isInteger(input.id) || !input.status || !allowed.includes(input.status)) {
       return Response.json({ error: "状态信息无效。" }, { status: 400 });
     }
-    const db = getDb();
+    const db = await getDb();
     const [current] = await db.select().from(consultations).where(eq(consultations.id, input.id as number)).limit(1);
     if (!current) return Response.json({ error: "咨询单不存在。" }, { status: 404 });
     const purchaseAmount = Number.isFinite(input.purchaseAmount) ? Math.max(0, Math.round(input.purchaseAmount as number)) : current.purchaseAmount;
@@ -45,7 +46,8 @@ export async function PATCH(request: Request) {
       await update;
     }
     return Response.json({ ok: true, rewardGranted: shouldGrant });
-  } catch {
+  } catch (error) {
+    console.error("Owner consultation update failed", error);
     return Response.json({ error: "状态更新失败。" }, { status: 500 });
   }
 }

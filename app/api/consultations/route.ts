@@ -38,7 +38,8 @@ export async function POST(request: Request) {
       contact: clean(input.contact, 120), note: clean(input.note, 500),
       referralCode: clean(input.referralCode, 30).toUpperCase(),
     };
-    await getDb().insert(consultations).values(values);
+    const db = await getDb();
+    await db.insert(consultations).values(values);
     const summary = [
       `花礼咨询单 ${reference}`, `款式：${bouquetName}（${bouquetId}）`, `体量：${size}`,
       `花材方案：${materialPlan}`, `参考价：¥${priceRange}`,
@@ -49,7 +50,8 @@ export async function POST(request: Request) {
       "最终花材与价格以门店花艺师确认为准。",
     ].filter(Boolean).join("\n");
     return Response.json({ reference, summary }, { status: 201 });
-  } catch {
+  } catch (error) {
+    console.error("Unable to create consultation", error);
     return Response.json({ error: "咨询单暂时无法保存，请稍后重试。" }, { status: 500 });
   }
 }

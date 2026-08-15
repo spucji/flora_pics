@@ -16,7 +16,7 @@ function makeCode() { return `F${crypto.randomUUID().replaceAll("-", "").slice(0
 export async function GET() {
   const blocked = await denied(); if (blocked) return blocked;
   try {
-    const db = getDb();
+    const db = await getDb();
     const memberRows = await db.select().from(members).orderBy(desc(members.createdAt));
     const ledgerRows = await db.select().from(memberLedger).orderBy(desc(memberLedger.createdAt)).limit(200);
     const result = memberRows.map(member => ({ ...member, balance: ledgerRows.filter(row => row.memberId === member.id).reduce((sum, row) => sum + row.amount, 0), ledger: ledgerRows.filter(row => row.memberId === member.id).slice(0, 12) }));
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   const blocked = await denied(); if (blocked) return blocked;
   try {
     const input = await request.json() as { action?: string; name?: string; contact?: string; note?: string; memberId?: number; amount?: number; reason?: string };
-    const db = getDb();
+    const db = await getDb();
     if (input.action === "create") {
       const name = clean(input.name, 60); if (!name) return Response.json({ error: "请填写会员称呼。" }, { status: 400 });
       const [member] = await db.insert(members).values({ code: makeCode(), name, contact: clean(input.contact, 120), note: clean(input.note, 300) }).returning();
@@ -44,5 +44,5 @@ export async function POST(request: Request) {
       return Response.json({ ok: true });
     }
     return Response.json({ error: "不支持的操作。" }, { status: 400 });
-  } catch { return Response.json({ error: "会员操作失败，请稍后重试。" }, { status: 500 }); }
+  } catch (error) { console.error("Owner member operation failed", error); return Response.json({ error: "会员操作失败，请稍后重试。" }, { status: 500 }); }
 }

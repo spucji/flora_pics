@@ -29,9 +29,13 @@ export default function MemberManager() {
   async function createMember(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setCreating(true); setError("");
     const form = event.currentTarget; const data = new FormData(form);
-    const response = await fetch("/api/owner/members", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ action:"create", name:data.get("name"), contact:data.get("contact"), note:data.get("note") }) });
-    const payload = await response.json(); setCreating(false);
-    if (!response.ok) { setError(payload.error); return; } form.reset(); await load();
+    try {
+      const response = await fetch("/api/owner/members", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ action:"create", name:data.get("name"), contact:data.get("contact"), note:data.get("note") }) });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "创建会员失败");
+      form.reset(); await load();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "创建会员失败"); }
+    finally { setCreating(false); }
   }
 
   async function redeem(member: Member) {

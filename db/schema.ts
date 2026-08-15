@@ -49,3 +49,9 @@ export const memberLedger = sqliteTable("member_ledger", {
   index("idx_member_ledger_member_created").on(table.memberId, table.createdAt),
   index("idx_member_ledger_consultation").on(table.consultationId),
 ]);
+
+export const catalogState = sqliteTable("catalog_state", {
+  id: integer("id").primaryKey(),
+  payload: text("payload").notNull(),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
