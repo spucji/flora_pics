@@ -25,12 +25,23 @@ export default function OwnerDashboard({ account, signOutPath }: { account:strin
     const payload=await response.json();if(!response.ok){setError(payload.error);return;}
     setItems(current=>current.map(row=>row.id===item.id?{...row,status,purchaseAmount,rewardGranted:Boolean(payload.rewardGranted)}:row));
   }
+
+  async function deleteConsultation(item:Consultation){
+    const rewardNote=item.rewardGranted?"\n该订单已产生 10 元推荐金，删除后会自动撤回。":"";
+    if(!window.confirm(`确定永久删除订单 ${item.reference}（${item.bouquetName}）吗？${rewardNote}`))return;
+    setError("");
+    const response=await fetch("/api/owner/consultations",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:item.id})});
+    const payload=await response.json();
+    if(!response.ok){setError(payload.error||"订单删除失败");return;}
+    setItems(current=>current.filter(row=>row.id!==item.id));
+  }
   const visible=filter==="all"?items:items.filter(item=>item.status===filter);
   return <main className="owner-dashboard">
     <aside><Link className="owner-brand" href="/"><b>H</b><span>HUAXULI FLORA<small>OWNER STUDIO</small></span></Link><nav><button onClick={()=>setView("consultations")} className={view==="consultations"?"active":""}>咨询单 <i>{items.length}</i></button><button onClick={()=>setView("members")} className={view==="members"?"active":""}>会员与推荐 <span>→</span></button><a href="/owner/editor">花礼与场景管理 <span>→</span></a></nav><div className="owner-account"><small>已登录店主</small><span>{account}</span><a href={signOutPath}>退出登录</a></div></aside>
     <section className="owner-content"><header><div><small>{view==="consultations"?"CONSULTATION DESK":"MEMBER LEDGER"}</small><h1>{view==="consultations"?"顾客咨询单":"会员与推荐金"}</h1></div><Link href="/">打开顾客页 ↗</Link></header>
       {view==="members"?<MemberManager/>:<><div className="owner-filters">{(["all","pending","contacted","purchased","cancelled"] as const).map(value=><button className={filter===value?"active":""} onClick={()=>setFilter(value)} key={value}>{value==="all"?"全部":statusText[value]} <span>{value==="all"?items.length:items.filter(item=>item.status===value).length}</span></button>)}</div>
       {loading?<div className="owner-empty">正在读取咨询单…</div>:error?<div className="owner-empty error">{error}</div>:visible.length===0?<div className="owner-empty">还没有这个状态的咨询单。</div>:<div className="consultation-list">{visible.map(item=><article key={item.id}><div className="ticket-head"><div><small>{item.reference}</small><h2>{item.bouquetName}</h2></div><select value={item.status} onChange={event=>updateStatus(item,event.target.value as Status)}><option value="pending">待联系</option><option value="contacted">已联系</option><option value="purchased">确认成交</option><option value="cancelled">取消 / 退款</option></select></div><div className="ticket-grid"><p><span>款式</span>{item.bouquetId} · {item.size}</p><p><span>花材方案</span>{item.materialPlan}</p><p><span>参考价 / 成交价</span>¥{item.priceRange}{item.purchaseAmount?` / ¥${item.purchaseAmount}`:""}</p><p><span>场景 / 日期</span>{item.scene||"未填写"}{item.deliveryDate?` · ${item.deliveryDate}`:""}</p><p><span>预算</span>{item.budget||"未填写"}</p><p><span>顾客</span>{item.customerName||"未留称呼"}{item.contact?` · ${item.contact}`:""}</p><p><span>会员推荐码</span>{item.referralCode||"无"}{item.rewardGranted?" · 已入账10元":""}</p></div>{item.note&&<blockquote>{item.note}</blockquote>}<footer>提交时间：{item.createdAt}</footer></article>)}</div>}</>}
+      {view==="consultations"&&!loading&&visible.length>0&&<section className="order-delete-panel"><div><h2>订单删除管理</h2><p>删除后无法恢复；已产生的推荐金会自动撤回。</p></div><div>{visible.map(item=><button type="button" onClick={()=>deleteConsultation(item)} key={item.id}><span>{item.reference} · {item.customerName||"未留称呼"}</span><b>删除订单</b></button>)}</div></section>}
     </section>
   </main>;
 }

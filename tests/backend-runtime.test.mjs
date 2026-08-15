@@ -84,6 +84,32 @@ test("consultations, members and catalog persist through the Alibaba Node runtim
     }));
     assert.equal(createdMember.member.name, "测试会员");
 
+    const referredConsultation = await json(await fetch(`${origin}/api/consultations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bouquetId:"FL-002", bouquetName:"暮色花园", size:"M", materialPlan:"原版花材", priceRange:"599–1299", customerName:"推荐顾客", referralCode:createdMember.member.code }),
+    }));
+    const consultationRows = await json(await fetch(`${origin}/api/owner/consultations`, { headers:ownerHeaders }));
+    const referredOrder = consultationRows.consultations.find(row => row.reference === referredConsultation.reference);
+    assert.ok(referredOrder);
+    await json(await fetch(`${origin}/api/owner/consultations`, {
+      method: "PATCH",
+      headers: { ...ownerHeaders, "Content-Type":"application/json" },
+      body: JSON.stringify({ id:referredOrder.id, status:"purchased", purchaseAmount:699 }),
+    }));
+    const rewardedMembers = await json(await fetch(`${origin}/api/owner/members`, { headers:ownerHeaders }));
+    assert.equal(rewardedMembers.members[0].balance, 10);
+    const deletedOrder = await json(await fetch(`${origin}/api/owner/consultations`, {
+      method: "DELETE",
+      headers: { ...ownerHeaders, "Content-Type":"application/json" },
+      body: JSON.stringify({ id:referredOrder.id }),
+    }));
+    assert.equal(deletedOrder.reversedReward, true);
+    const membersAfterDeletion = await json(await fetch(`${origin}/api/owner/members`, { headers:ownerHeaders }));
+    assert.equal(membersAfterDeletion.members[0].balance, 0);
+    const ordersAfterDeletion = await json(await fetch(`${origin}/api/owner/consultations`, { headers:ownerHeaders }));
+    assert.ok(!ordersAfterDeletion.consultations.some(row => row.id === referredOrder.id));
+
     const changedCatalog = structuredClone(initialCatalog);
     changedCatalog.bouquets[0].name = "已保存的测试花礼";
     changedCatalog.bouquets[0].image = uploadedImage.url;
@@ -100,6 +126,16 @@ test("consultations, members and catalog persist through the Alibaba Node runtim
     assert.equal(savedCatalog.bouquets[0].image, uploadedImage.url);
     assert.ok(!savedCatalog.bouquets.some(bouquet => bouquet.image.startsWith("data:image/")));
 
+    const catalogAfterBouquetDeletion = structuredClone(savedCatalog);
+    catalogAfterBouquetDeletion.bouquets = catalogAfterBouquetDeletion.bouquets.filter(bouquet => bouquet.id !== "FL-001");
+    await json(await fetch(`${origin}/api/catalog`, {
+      method: "PUT",
+      headers: { ...ownerHeaders, "Content-Type":"application/json" },
+      body: JSON.stringify(catalogAfterBouquetDeletion),
+    }));
+    const catalogWithoutDeletedBouquet = await json(await fetch(`${origin}/api/catalog`));
+    assert.ok(!catalogWithoutDeletedBouquet.bouquets.some(bouquet => bouquet.id === "FL-001"));
+
     const editor = await fetch(`${origin}/owner/editor`, { headers: ownerHeaders, redirect:"manual" });
     assert.equal(editor.status, 200);
     const editorHtml = await editor.text();
@@ -107,6 +143,8 @@ test("consultations, members and catalog persist through the Alibaba Node runtim
     assert.match(editorHtml, /花礼管理/);
     assert.match(editorHtml, /场景管理/);
     assert.match(editorHtml, /新增花礼/);
+    assert.match(editorHtml, /删除当前花礼/);
+
   } finally {
     server.kill("SIGTERM");
     await new Promise(resolve => server.once("exit", resolve));

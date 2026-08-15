@@ -51,3 +51,31 @@ export async function PATCH(request: Request) {
     return Response.json({ error: "状态更新失败。" }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  const denied = await authorize();
+  if (denied) return denied;
+  try {
+    const input = await request.json() as { id?: number };
+    if (!Number.isInteger(input.id)) return Response.json({ error: "订单编号无效。" }, { status: 400 });
+    const db = await getDb();
+    const [current] = await db.select().from(consultations).where(eq(consultations.id, input.id as number)).limit(1);
+    if (!current) return Response.json({ error: "咨询单不存在或已被删除。" }, { status: 404 });
+    const [referrer] = current.referralCode ? await db.select().from(members).where(eq(members.code, current.referralCode)).limit(1) : [];
+    const detachLedger = db.update(memberLedger).set({ consultationId:null }).where(eq(memberLedger.consultationId, current.id));
+    const removeOrder = db.delete(consultations).where(eq(consultations.id, current.id));
+    if (current.rewardGranted && referrer) {
+      await db.batch([
+        detachLedger,
+        db.insert(memberLedger).values({ memberId:referrer.id, amount:-10, type:"reversal", reason:`删除订单 ${current.reference}，撤回推荐金` }),
+        removeOrder,
+      ]);
+    } else {
+      await db.batch([detachLedger, removeOrder]);
+    }
+    return Response.json({ ok:true, reversedReward:Boolean(current.rewardGranted && referrer) });
+  } catch (error) {
+    console.error("Owner consultation deletion failed", error);
+    return Response.json({ error: "订单删除失败，请稍后重试。" }, { status: 500 });
+  }
+}
